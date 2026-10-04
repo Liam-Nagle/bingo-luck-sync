@@ -20,7 +20,7 @@ public interface BingoLuckSyncConfig extends Config
 	@ConfigItem(
 		keyName = "enableSync",
 		name = "Enable sync",
-		description = "Send your own collection log and raid completions to the bingo/luck server. "
+		description = "Send your own collection log, kill counters and raid completions to your group's OSRS Bingo Board. "
 			+ "Only data about your own account is sent: your RuneScape name, collection log items and kill counts, "
 			+ "and raid results (raid, mode, kill count, points, raid level, team size).",
 		warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers",
@@ -35,7 +35,7 @@ public interface BingoLuckSyncConfig extends Config
 	@ConfigItem(
 		keyName = "pluginToken",
 		name = "Plugin token",
-		description = "The plugin token from your group's bingo website (Admin menu > RuneLite Plugin Token). It only lets this plugin send your data.",
+		description = "The plugin token from your group's OSRS Bingo Board admin. It only lets this plugin send your data.",
 		secret = true,
 		section = syncSection,
 		position = 1

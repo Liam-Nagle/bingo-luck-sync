@@ -40,8 +40,8 @@ import net.runelite.client.util.Text;
 @Slf4j
 @PluginDescriptor(
 	name = "Bingo Luck Sync",
-	description = "Optionally syncs your own collection log and raid completions to your group's bingo/luck website",
-	tags = {"collection log", "raids", "luck", "gim", "sync"}
+	description = "Companion for OSRS Bingo Board: optionally sends your own collection log, kill counters and raid results to your group's board",
+	tags = {"collection log", "raids", "luck", "bingo", "gim", "sync"}
 )
 public class BingoLuckSyncPlugin extends Plugin
 {
