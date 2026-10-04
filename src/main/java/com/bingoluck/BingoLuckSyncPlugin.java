@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.inject.Provides;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -85,6 +86,9 @@ public class BingoLuckSyncPlugin extends Plugin
 	private KillCountTracker killCountTracker;
 
 	@Inject
+	private DoomDelveTracker doomDelveTracker;
+
+	@Inject
 	private Gson gson;
 
 	/** Last payload sent per collection log page, so unchanged pages are not re-sent. */
@@ -128,9 +132,11 @@ public class BingoLuckSyncPlugin extends Plugin
 		if (client.getGameState() == GameState.LOGGED_IN)
 		{
 			killCountTracker.save();
+			doomDelveTracker.save();
 		}
 		resetSessionState();
 		killCountTracker.reset();
+		doomDelveTracker.reset();
 		syncClient.stop();
 	}
 
@@ -147,6 +153,7 @@ public class BingoLuckSyncPlugin extends Plugin
 		{
 			resetSessionState();
 			killCountTracker.reset();
+			doomDelveTracker.reset();
 		}
 	}
 
@@ -277,9 +284,11 @@ public class BingoLuckSyncPlugin extends Plugin
 		if (config.syncKillCounts())
 		{
 			killCountTracker.loadIfNeeded();
+			doomDelveTracker.loadIfNeeded();
 			if (tickCount % KC_FLUSH_TICKS == 0)
 			{
 				flushKillCounts();
+				flushDoomDelves();
 			}
 		}
 
@@ -299,6 +308,39 @@ public class BingoLuckSyncPlugin extends Plugin
 			// Child text is filled in on the tick after the interface loads.
 			clientThread.invokeLater(this::readTobBoard);
 		}
+		else if (event.getGroupId() == InterfaceID.DOM_SCOREBOARD && config.syncKillCounts() && canSync())
+		{
+			clientThread.invokeLater(this::readDoomScoreboard);
+		}
+	}
+
+	/** Reads the player's own per-level delve completions from the Doom of Mokhaiotl scoreboard. */
+	private void readDoomScoreboard()
+	{
+		int[] widgetIds = {
+			InterfaceID.DomScoreboard.P_TOTAL_LEVEL_1_VAL, InterfaceID.DomScoreboard.P_TOTAL_LEVEL_2_VAL,
+			InterfaceID.DomScoreboard.P_TOTAL_LEVEL_3_VAL, InterfaceID.DomScoreboard.P_TOTAL_LEVEL_4_VAL,
+			InterfaceID.DomScoreboard.P_TOTAL_LEVEL_5_VAL, InterfaceID.DomScoreboard.P_TOTAL_LEVEL_6_VAL,
+			InterfaceID.DomScoreboard.P_TOTAL_LEVEL_7_VAL, InterfaceID.DomScoreboard.P_TOTAL_LEVEL_8_VAL};
+		int[] counts = new int[widgetIds.length];
+		for (int i = 0; i < widgetIds.length; i++)
+		{
+			Widget w = client.getWidget(widgetIds[i]);
+			if (w == null || w.getText() == null)
+			{
+				return;                                // not drawn yet; don't seed from a half-loaded board
+			}
+			counts[i] = parseCount(w.getText());
+		}
+		Widget deep = client.getWidget(InterfaceID.DomScoreboard.P_TOTAL_LEVEL_8__VAL);
+		int past8 = deep == null || deep.getText() == null ? 0 : Math.max(0, parseCount(deep.getText()));
+		for (int i = 0; i < counts.length; i++)
+		{
+			counts[i] = Math.max(0, counts[i]);
+		}
+		log.debug("Doom scoreboard: levels={} past8={}", Arrays.toString(counts), past8);
+		doomDelveTracker.loadIfNeeded();
+		doomDelveTracker.seed(counts, past8);
 	}
 
 	private void readTobBoard()
@@ -381,6 +423,17 @@ public class BingoLuckSyncPlugin extends Plugin
 		}
 	}
 
+	private void flushDoomDelves()
+	{
+		String player = playerName();
+		DoomDelveData snapshot = player == null ? null : doomDelveTracker.takeDirtySnapshot(player);
+		if (snapshot != null)
+		{
+			doomDelveTracker.save();
+			syncClient.postDoomDelves(config.pluginToken(), snapshot);
+		}
+	}
+
 	private void flushKillCounts()
 	{
 		List<KillCountData.Count> snapshot = killCountTracker.takeDirtySnapshot();
@@ -419,6 +472,14 @@ public class BingoLuckSyncPlugin extends Plugin
 	@Subscribe
 	public void onChatMessage(ChatMessage event)
 	{
+		// Delve completions arrive as game or spam messages: "Delve level: 5 duration: 1:23 ..."
+		if ((event.getType() == ChatMessageType.GAMEMESSAGE || event.getType() == ChatMessageType.SPAM)
+			&& config.syncKillCounts() && canSync() && event.getMessage().contains("Delve level"))
+		{
+			doomDelveTracker.loadIfNeeded();
+			doomDelveTracker.onGameMessage(Text.removeTags(event.getMessage()));
+		}
+
 		if (event.getType() != ChatMessageType.GAMEMESSAGE || !canSync())
 		{
 			return;

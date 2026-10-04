@@ -26,6 +26,11 @@ It does nothing unless your group has a Bingo Board and you have a plugin token 
   kill/completion counts current by counting NPC loot events and reading the game's kill count chat
   messages, saves them in your RuneLite profile, and sends them in batches. Opening the page again
   re-syncs any drift. Only pages you have opened are tracked.
+- **Doom of Mokhaiotl delves:** the hiscores only count deep delves, but uniques can drop from delve 2
+  onwards at rates that change with each level. Open the Doom scoreboard (in the lobby) once and the
+  plugin reads your own completions for each delve level; after that it adds one for every
+  "Delve level: N duration: ..." game message, saves the counts in your RuneLite profile, and sends
+  them in batches. Nothing is counted until you have opened the scoreboard once.
 - **Raid completions:** when you finish Chambers of Xeric, Theatre of Blood or Tombs of Amascut it
   records the raid, mode, your completion count, and the values the game gives your client:
   - Chambers of Xeric: team points, your personal points, team size as displayed by the game.
@@ -51,8 +56,9 @@ address. Each request contains:
 - your RuneScape name,
 - the collection log page, items (id, name, quantity, obtained) and kill count text,
 - your kill/completion counters for the collection log pages you have opened (source name and count),
+- your Doom of Mokhaiotl completions for each delve level,
 - or the raid completion fields listed above, plus the time it finished,
-- your group's plugin token in the `X-Plugin-Token` header. The token is issued by your group's admin, only works for this plugin's upload endpoints (collection log, raids and kill counts), and the admin can rotate it at any time.
+- your group's plugin token in the `X-Plugin-Token` header. The token is issued by your group's admin, only works for this plugin's upload endpoints (collection log, raids, kill counts and Doom delves), and the admin can rotate it at any time.
 
 Only data about your own account is sent. The plugin does not read other players' collection logs
 (it ignores a collection log opened through a player-owned house host book), does not send other

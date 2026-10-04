@@ -61,7 +61,8 @@ public interface BingoLuckSyncConfig extends Config
 		keyName = "syncKillCounts",
 		name = "Sync kill counts",
 		description = "Keep your kill and completion counts up to date after you have opened a collection log page once, "
-			+ "using NPC loot and kill count messages, and send them.",
+			+ "using NPC loot and kill count messages, and send them. Also tracks your Doom of Mokhaiotl "
+			+ "delve completions per level once you have opened the Doom scoreboard.",
 		section = syncSection,
 		position = 3
 	)

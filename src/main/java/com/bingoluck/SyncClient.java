@@ -84,6 +84,11 @@ class SyncClient
 		post("/plugin/kc", token, data);
 	}
 
+	void postDoomDelves(String token, DoomDelveData data)
+	{
+		post("/plugin/doom", token, data);
+	}
+
 	private void post(String path, String token, Object body)
 	{
 		HttpUrl url = HttpUrl.parse(baseUrl + path);
