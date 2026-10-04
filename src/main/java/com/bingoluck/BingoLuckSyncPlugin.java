@@ -242,6 +242,7 @@ public class BingoLuckSyncPlugin extends Plugin
 		{
 			killCountTracker.loadIfNeeded();
 			killCountTracker.onPageLines(killCounts);
+			killCountTracker.saveIfChanged();
 		}
 
 		CollectionLogPageData data = new CollectionLogPageData(player, pageName, items, killCounts);
@@ -341,6 +342,7 @@ public class BingoLuckSyncPlugin extends Plugin
 		log.debug("Doom scoreboard: levels={} past8={}", Arrays.toString(counts), past8);
 		doomDelveTracker.loadIfNeeded();
 		doomDelveTracker.seed(counts, past8);
+		doomDelveTracker.save();                       // keep it even if the player logs out before the next upload
 	}
 
 	private void readTobBoard()
@@ -420,6 +422,7 @@ public class BingoLuckSyncPlugin extends Plugin
 		if (config.syncKillCounts() && canSync() && event.getNpc() != null)
 		{
 			killCountTracker.onNpcLoot(event.getNpc().getName());
+			killCountTracker.saveIfChanged();
 		}
 	}
 
@@ -477,7 +480,10 @@ public class BingoLuckSyncPlugin extends Plugin
 			&& config.syncKillCounts() && canSync() && event.getMessage().contains("Delve level"))
 		{
 			doomDelveTracker.loadIfNeeded();
-			doomDelveTracker.onGameMessage(Text.removeTags(event.getMessage()));
+			if (doomDelveTracker.onGameMessage(Text.removeTags(event.getMessage())))
+			{
+				doomDelveTracker.save();
+			}
 		}
 
 		if (event.getType() != ChatMessageType.GAMEMESSAGE || !canSync())
@@ -494,6 +500,7 @@ public class BingoLuckSyncPlugin extends Plugin
 			{
 				killCountTracker.loadIfNeeded();
 				killCountTracker.onChatKillCount(chatKc.group(1), Integer.parseInt(chatKc.group(2).replace(",", "")));
+				killCountTracker.saveIfChanged();
 			}
 		}
 
@@ -523,6 +530,7 @@ public class BingoLuckSyncPlugin extends Plugin
 			{
 				killCountTracker.loadIfNeeded();
 				killCountTracker.onRaidKillCount(kc.group(1), mode, raidKc);
+				killCountTracker.saveIfChanged();
 			}
 			pendingKc = new PendingKc(
 				kc.group(1),

@@ -67,6 +67,7 @@ class DoomDelveTracker
 							levels[i] = Integer.parseInt(parts[i]);
 						}
 						seeded = true;
+						dirty = true;                  // saved but possibly never sent: send them again on this login
 					}
 					catch (NumberFormatException e)
 					{

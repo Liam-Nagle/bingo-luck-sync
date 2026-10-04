@@ -38,6 +38,7 @@ class KillCountTracker
 	private final Map<String, String> byLowerName = new LinkedHashMap<>();
 	private boolean loaded;
 	private boolean dirty;
+	private boolean unsaved;                           // changed since the last write to the profile
 
 	@Inject
 	KillCountTracker(ConfigManager configManager)
@@ -72,6 +73,7 @@ class KillCountTracker
 			}
 		}
 		loaded = true;
+		dirty = !counts.isEmpty();                     // saved but possibly never sent: send them again on this login
 	}
 
 	synchronized void reset()
@@ -169,12 +171,22 @@ class KillCountTracker
 	}
 
 	/** Saves counters to the RuneLite profile. Call off the hot path (it is a config write). */
+	/** Writes the counters to the profile only if something changed since the last write. */
+	synchronized void saveIfChanged()
+	{
+		if (unsaved)
+		{
+			save();
+		}
+	}
+
 	synchronized void save()
 	{
 		if (!loaded)
 		{
 			return;
 		}
+		unsaved = false;
 		StringBuilder sb = new StringBuilder();
 		for (Map.Entry<String, Integer> e : counts.entrySet())
 		{
@@ -191,9 +203,13 @@ class KillCountTracker
 		}
 		Integer old = counts.put(name, kc);
 		byLowerName.put(name.toLowerCase(Locale.ROOT), name);
-		if (markDirty && (old == null || old != kc))
+		if (old == null || old != kc)
 		{
-			dirty = true;
+			unsaved = true;
+			if (markDirty)
+			{
+				dirty = true;
+			}
 		}
 	}
 
