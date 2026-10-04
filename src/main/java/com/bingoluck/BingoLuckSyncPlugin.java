@@ -118,6 +118,7 @@ public class BingoLuckSyncPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		syncClient.start();
 		resetSessionState();
 	}
 
@@ -130,6 +131,7 @@ public class BingoLuckSyncPlugin extends Plugin
 		}
 		resetSessionState();
 		killCountTracker.reset();
+		syncClient.stop();
 	}
 
 	@Provides
