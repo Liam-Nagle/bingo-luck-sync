@@ -83,6 +83,9 @@ public class BingoLuckSyncPlugin extends Plugin
 	private ChatMessageManager chatMessageManager;
 
 	@Inject
+	private ConfigManager configManager;
+
+	@Inject
 	private BingoLuckSyncConfig config;
 
 	@Inject
@@ -134,6 +137,7 @@ public class BingoLuckSyncPlugin extends Plugin
 	private boolean lastTobSentFromLive;
 	// Deaths counted from the game's chat lines during the raid; the board, when read, takes priority.
 	private final TobDeathTracker tobDeathTracker = new TobDeathTracker();
+	private boolean updateChecked;
 
 	@Override
 	protected void startUp()
@@ -160,6 +164,12 @@ public class BingoLuckSyncPlugin extends Plugin
 			}
 		});
 		resetSessionState();
+		updateChecked = false;
+		if (config.lastSeenVersion().isEmpty() && !config.enableSync() && config.pluginToken().isEmpty())
+		{
+			// A brand-new install: remember the version quietly so a later setup isn't announced as an update.
+			configManager.setConfiguration(BingoLuckSyncConfig.GROUP, "lastSeenVersion", UpdateNotice.VERSION);
+		}
 	}
 
 	@Override
@@ -192,6 +202,22 @@ public class BingoLuckSyncPlugin extends Plugin
 			warnedTokenRejected.set(false);
 			warnedUploadsFailing.set(false);
 		}
+	}
+
+	/** Once per update, tells someone who already uses the plugin what changed. A new install is not told. */
+	private void announceUpdateOnce()
+	{
+		if (updateChecked)
+		{
+			return;
+		}
+		updateChecked = true;
+		String lastSeen = config.lastSeenVersion();
+		if (UpdateNotice.shouldAnnounce(lastSeen, UpdateNotice.VERSION, config.enableSync() && !config.pluginToken().isEmpty()))
+		{
+			tell(UpdateNotice.message());
+		}
+		configManager.setConfiguration(BingoLuckSyncConfig.GROUP, "lastSeenVersion", UpdateNotice.VERSION);
 	}
 
 	/** Puts a short line in the game chat. Safe to call from any thread. */
@@ -330,6 +356,8 @@ public class BingoLuckSyncPlugin extends Plugin
 		{
 			return;
 		}
+
+		announceUpdateOnce();
 
 		// The raid varbits are reset once the raid ends, so keep the last values seen inside it.
 		int toaLevel = client.getVarbitValue(VarbitID.TOA_CLIENT_RAID_LEVEL);

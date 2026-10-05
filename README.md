@@ -36,9 +36,14 @@ It does nothing unless your group has a Bingo Board and you have a plugin token 
   - Chambers of Xeric: team points, your personal points, team size as displayed by the game.
   - Tombs of Amascut: your personal points (exact, as sent by the game; excludes the 5,000 starting
     points), raid level and team size.
-  - Theatre of Blood: mode, team size, and from the end-of-raid performance board your own death
-    count, the team's total deaths (a number only) and whether you were the raid MVP. Other
-    players' names on that board are never stored or sent.
+  - Theatre of Blood: mode, team size, your own death count and the team's total deaths (a number
+    only), and - if you open the end-of-raid performance board - whether you were the raid MVP.
+    Deaths are counted from the game's own "has died" chat messages during the raid, and the board's
+    figures replace them if you open it. Other players' names, on the board or in those messages,
+    are never stored or sent.
+
+See [CHANGELOG.md](CHANGELOG.md) for what has changed in each version. After an update the plugin
+mentions it once in your game chat.
 
 ## Problems it will tell you about
 

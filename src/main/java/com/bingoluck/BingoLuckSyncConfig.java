@@ -82,4 +82,16 @@ public interface BingoLuckSyncConfig extends Config
 	{
 		return true;
 	}
+
+	/** Remembers which version's "what's new" message was last shown. Not shown in the settings panel. */
+	@ConfigItem(
+		keyName = "lastSeenVersion",
+		name = "Last seen version",
+		description = "Internal: the plugin version whose update message was last shown.",
+		hidden = true
+	)
+	default String lastSeenVersion()
+	{
+		return "";
+	}
 }
