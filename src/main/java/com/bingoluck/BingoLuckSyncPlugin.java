@@ -131,6 +131,9 @@ public class BingoLuckSyncPlugin extends Plugin
 	private int tobBoardTick = NEVER;
 	private RaidCompletion lastTobSent;
 	private int lastTobSentTick = NEVER;
+	private boolean lastTobSentFromLive;
+	// Deaths counted from the game's chat lines during the raid; the board, when read, takes priority.
+	private final TobDeathTracker tobDeathTracker = new TobDeathTracker();
 
 	@Override
 	protected void startUp()
@@ -455,9 +458,10 @@ public class BingoLuckSyncPlugin extends Plugin
 		{
 			finalizeRaid(false);
 		}
-		else if (lastTobSent != null && lastTobSent.getDeaths() < 0 && tickCount - lastTobSentTick < LATE_UPDATE_TICKS)
+		else if (lastTobSent != null && (lastTobSent.getDeaths() < 0 || lastTobSentFromLive) && tickCount - lastTobSentTick < LATE_UPDATE_TICKS)
 		{
 			// The raid was already sent without deaths (board opened late): send the completed version.
+			lastTobSentFromLive = false;
 			lastTobSent = lastTobSent.toBuilder().deaths(tobDeaths).teamDeaths(tobTeamDeaths).mvp(tobMvp).build();
 			syncClient.postRaid(config.pluginToken(), lastTobSent);
 		}
@@ -568,6 +572,9 @@ public class BingoLuckSyncPlugin extends Plugin
 			return;
 		}
 
+		String myName = playerName();
+		tobDeathTracker.onGameMessage(message, myName == null ? null : Text.sanitize(myName));
+
 		if (message.startsWith(COX_COMPLETE_MESSAGE))
 		{
 			coxTotalPoints = client.getVarbitValue(VarbitID.RAIDS_CLIENT_PARTYSCORE);
@@ -666,9 +673,16 @@ public class BingoLuckSyncPlugin extends Plugin
 				}
 				int tob = tobTeamSize();
 				builder.raid("TOB").teamSize(tob > 0 ? tob : lastTobTeamSize);
+				lastTobSentFromLive = false;
 				if (tobFresh)
 				{
 					builder.deaths(tobDeaths).teamDeaths(tobTeamDeaths).mvp(tobMvp);
+				}
+				else if (tobDeathTracker.isActive())
+				{
+					// The board wasn't opened: use the deaths counted from chat. Opening it later still corrects this.
+					builder.deaths(tobDeathTracker.getMyDeaths()).teamDeaths(tobDeathTracker.getTeamDeaths());
+					lastTobSentFromLive = true;
 				}
 				break;
 
@@ -770,6 +784,8 @@ public class BingoLuckSyncPlugin extends Plugin
 		lastTobTeamSize = -1;
 		tobBoardTick = NEVER;
 		lastTobSent = null;
+		lastTobSentFromLive = false;
+		tobDeathTracker.reset();
 	}
 
 	private static final class PendingKc
