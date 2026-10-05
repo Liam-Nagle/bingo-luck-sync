@@ -108,4 +108,80 @@ public class SyncClientTest
 		Thread.sleep(2500);
 		assertEquals(1, requests.get());
 	}
+
+	/** Counts what the client reports to its listener. */
+	private static final class CountingListener implements SyncClient.Listener
+	{
+		final AtomicInteger rejected = new AtomicInteger();
+		final AtomicInteger gaveUp = new AtomicInteger();
+
+		@Override
+		public void onTokenRejected()
+		{
+			rejected.incrementAndGet();
+		}
+
+		@Override
+		public void onGaveUp(String path)
+		{
+			gaveUp.incrementAndGet();
+		}
+	}
+
+	@Test
+	public void reportsARefusedTokenButIsNotTreatedAsAFailure() throws Exception
+	{
+		CountingListener listener = new CountingListener();
+		client.setListener(listener);
+		script = new int[]{401};
+		done = new CountDownLatch(1);
+		send();
+		assertTrue(done.await(10, TimeUnit.SECONDS));
+		Thread.sleep(500);
+		assertEquals(1, listener.rejected.get());
+		assertEquals("a refused token is not 'couldn't reach the server'", 0, listener.gaveUp.get());
+	}
+
+	@Test
+	public void reportsGivingUpOnlyAfterEveryRetryFailed() throws Exception
+	{
+		CountingListener listener = new CountingListener();
+		client.setListener(listener);
+		script = new int[]{503};
+		done = new CountDownLatch(1);
+		send();
+		Thread.sleep(1500);
+		assertEquals(4, requests.get());
+		assertEquals(1, listener.gaveUp.get());
+		assertEquals(0, listener.rejected.get());
+	}
+
+	@Test
+	public void staysQuietWhenARetrySucceeds() throws Exception
+	{
+		CountingListener listener = new CountingListener();
+		client.setListener(listener);
+		script = new int[]{503, 429, 200};
+		done = new CountDownLatch(1);
+		send();
+		assertTrue(done.await(10, TimeUnit.SECONDS));
+		Thread.sleep(300);
+		assertEquals(0, listener.gaveUp.get());
+		assertEquals(0, listener.rejected.get());
+	}
+
+	@Test
+	public void staysQuietAfterStop() throws Exception
+	{
+		CountingListener listener = new CountingListener();
+		client.setListener(listener);
+		client.retryDelaysSeconds = new long[]{1, 1, 1};
+		script = new int[]{503};
+		done = new CountDownLatch(1);
+		send();
+		Thread.sleep(200);
+		client.stop();
+		Thread.sleep(1500);
+		assertEquals("a plugin that has shut down must not talk", 0, listener.gaveUp.get());
+	}
 }

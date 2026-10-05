@@ -9,6 +9,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
@@ -30,8 +31,13 @@ import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.chat.ChatColorType;
+import net.runelite.client.chat.ChatMessageBuilder;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.NpcLootReceived;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
@@ -74,6 +80,9 @@ public class BingoLuckSyncPlugin extends Plugin
 	private ClientThread clientThread;
 
 	@Inject
+	private ChatMessageManager chatMessageManager;
+
+	@Inject
 	private BingoLuckSyncConfig config;
 
 	@Inject
@@ -96,6 +105,10 @@ public class BingoLuckSyncPlugin extends Plugin
 	private final Map<String, Integer> lastObtainedCounts = new HashMap<>();
 
 	private int tickCount;
+
+	// Each problem is mentioned once per session so a broken setup doesn't spam the chat.
+	private final AtomicBoolean warnedTokenRejected = new AtomicBoolean();
+	private final AtomicBoolean warnedUploadsFailing = new AtomicBoolean();
 
 	// Raid state
 	private PendingKc pendingKc;
@@ -123,6 +136,26 @@ public class BingoLuckSyncPlugin extends Plugin
 	protected void startUp()
 	{
 		syncClient.start();
+		syncClient.setListener(new SyncClient.Listener()
+		{
+			@Override
+			public void onTokenRejected()
+			{
+				if (warnedTokenRejected.compareAndSet(false, true))
+				{
+					tell("your plugin token wasn't accepted. Check it with your group admin; it may have been changed.");
+				}
+			}
+
+			@Override
+			public void onGaveUp(String path)
+			{
+				if (warnedUploadsFailing.compareAndSet(false, true))
+				{
+					tell("couldn't reach the server after several tries. Your saved counts will be sent the next time you log in.");
+				}
+			}
+		});
 		resetSessionState();
 	}
 
@@ -137,6 +170,7 @@ public class BingoLuckSyncPlugin extends Plugin
 		resetSessionState();
 		killCountTracker.reset();
 		doomDelveTracker.reset();
+		syncClient.setListener(null);
 		syncClient.stop();
 	}
 
@@ -144,6 +178,31 @@ public class BingoLuckSyncPlugin extends Plugin
 	BingoLuckSyncConfig provideConfig(ConfigManager configManager)
 	{
 		return configManager.getConfig(BingoLuckSyncConfig.class);
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		// A corrected token deserves a fresh chance to say if it is still wrong.
+		if (BingoLuckSyncConfig.GROUP.equals(event.getGroup()) && "pluginToken".equals(event.getKey()))
+		{
+			warnedTokenRejected.set(false);
+			warnedUploadsFailing.set(false);
+		}
+	}
+
+	/** Puts a short line in the game chat. Safe to call from any thread. */
+	private void tell(String text)
+	{
+		clientThread.invokeLater(() -> chatMessageManager.queue(QueuedMessage.builder()
+			.type(ChatMessageType.GAMEMESSAGE)
+			.runeLiteFormattedMessage(new ChatMessageBuilder()
+				.append(ChatColorType.HIGHLIGHT)
+				.append("Bingo Luck Sync: ")
+				.append(ChatColorType.NORMAL)
+				.append(text)
+				.build())
+			.build()));
 	}
 
 	@Subscribe
@@ -698,6 +757,8 @@ public class BingoLuckSyncPlugin extends Plugin
 
 	private void resetSessionState()
 	{
+		warnedTokenRejected.set(false);
+		warnedUploadsFailing.set(false);
 		lastSentPages.clear();
 		lastObtainedCounts.clear();
 		pendingKc = null;

@@ -44,6 +44,17 @@ class SyncClient
 	private final ScheduledExecutorService executor;
 	private final Set<ScheduledFuture<?>> pendingRetries = ConcurrentHashMap.newKeySet();
 	private volatile boolean stopped;
+	private volatile Listener listener;
+
+	/** Told about the two outcomes a player can act on. Called on a background thread. */
+	interface Listener
+	{
+		/** The server refused the plugin token (HTTP 401). Retrying can't fix that. */
+		void onTokenRejected();
+
+		/** An upload failed on every retry (server busy, down, or unreachable). */
+		void onGaveUp(String path);
+	}
 
 	@Inject
 	SyncClient(OkHttpClient okHttpClient, Gson gson, ScheduledExecutorService executor)
@@ -56,6 +67,11 @@ class SyncClient
 	void start()
 	{
 		stopped = false;
+	}
+
+	void setListener(Listener listener)
+	{
+		this.listener = listener;
 	}
 
 	/** Cancels retries that are still waiting. Called when the plugin shuts down. */
@@ -129,7 +145,15 @@ class SyncClient
 						return;
 					}
 					log.debug("Sync to {} returned HTTP {}", path, r.code());
-					if (r.code() == 429 || r.code() >= 500)
+					if (r.code() == 401)
+					{
+						Listener l = listener;
+						if (l != null && !stopped)
+						{
+							l.onTokenRejected();
+						}
+					}
+					else if (r.code() == 429 || r.code() >= 500)
 					{
 						retry(url, path, token, json, attempt);
 					}
@@ -140,8 +164,17 @@ class SyncClient
 
 	private void retry(HttpUrl url, String path, String token, String json, int attempt)
 	{
-		if (stopped || attempt >= retryDelaysSeconds.length)
+		if (stopped)
 		{
+			return;
+		}
+		if (attempt >= retryDelaysSeconds.length)
+		{
+			Listener l = listener;
+			if (l != null)
+			{
+				l.onGaveUp(path);
+			}
 			return;
 		}
 

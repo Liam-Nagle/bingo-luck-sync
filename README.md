@@ -40,6 +40,13 @@ It does nothing unless your group has a Bingo Board and you have a plugin token 
     count, the team's total deaths (a number only) and whether you were the raid MVP. Other
     players' names on that board are never stored or sent.
 
+## Problems it will tell you about
+
+The plugin is quiet while everything works. It puts a short line in the game chat only when something
+needs your attention, once per session each: if the server rejects your plugin token (check it with
+your group admin), or if uploads still fail after several automatic retries (the server may be down;
+your saved counts are sent the next time you log in).
+
 ## Setup
 
 Your group's admin creates a plugin token for the group's board. Paste it into the plugin's
