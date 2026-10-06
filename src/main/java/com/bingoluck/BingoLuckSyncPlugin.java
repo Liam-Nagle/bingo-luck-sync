@@ -56,6 +56,7 @@ public class BingoLuckSyncPlugin extends Plugin
 	private static final Pattern COX_TEAM_SIZE = Pattern.compile("Team size: ?(.+?) ?Duration");
 	private static final Pattern CHAT_KC = Pattern.compile("^Your (.+?) (?:kill|success) count is: ?([0-9,]+)");
 	private static final int KC_FLUSH_TICKS = 100;
+	private static final int DOOM_POLL_TICKS = 3;
 	private static final Pattern RAID_KC = Pattern.compile(
 		"^Your completed (Chambers of Xeric|Theatre of Blood|Tombs of Amascut):? ?(.*?) ?count is: ?([0-9,]+)");
 
@@ -359,6 +360,17 @@ public class BingoLuckSyncPlugin extends Plugin
 
 		announceUpdateOnce();
 
+		// The scoreboard's text can be filled in after it opens, and reopening it doesn't always fire a new
+		// load event, so keep reading it every few ticks while it is on screen.
+		if (config.syncKillCounts() && tickCount % DOOM_POLL_TICKS == 0)
+		{
+			Widget board = client.getWidget(InterfaceID.DomScoreboard.P_TOTAL_LEVEL_1_VAL);
+			if (board != null && !board.isHidden())
+			{
+				readDoomScoreboard();
+			}
+		}
+
 		// The raid varbits are reset once the raid ends, so keep the last values seen inside it.
 		int toaLevel = client.getVarbitValue(VarbitID.TOA_CLIENT_RAID_LEVEL);
 		if (toaLevel > 0)
@@ -419,6 +431,7 @@ public class BingoLuckSyncPlugin extends Plugin
 			Widget w = client.getWidget(widgetIds[i]);
 			if (w == null || w.getText() == null)
 			{
+				log.debug("Doom scoreboard row {} not drawn yet; will try again while it is open", i + 1);
 				return;                                // not drawn yet; don't seed from a half-loaded board
 			}
 			counts[i] = parseCount(w.getText());
@@ -429,10 +442,13 @@ public class BingoLuckSyncPlugin extends Plugin
 		{
 			counts[i] = Math.max(0, counts[i]);
 		}
-		log.debug("Doom scoreboard: levels={} past8={}", Arrays.toString(counts), past8);
+		log.debug("Doom scoreboard: levels={} past8={} (8+ row text: {})", Arrays.toString(counts), past8,
+			deep == null ? "missing" : deep.getText());
 		doomDelveTracker.loadIfNeeded();
-		doomDelveTracker.seed(counts, past8);
-		doomDelveTracker.save();                       // keep it even if the player logs out before the next upload
+		if (doomDelveTracker.seed(counts, past8))
+		{
+			doomDelveTracker.save();                   // keep it even if the player logs out before the next upload
+		}
 	}
 
 	private void readTobBoard()

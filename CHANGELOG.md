@@ -11,6 +11,7 @@ message in your game chat once, pointing here.
 - **The plugin tells you in the game chat when something is wrong:** once if your plugin token is
   refused, and once if uploads keep failing. Nothing else is shown in chat, and each message appears at
   most once per session.
+- **Fixed Doom delves past level 8 not being counted as you go.** The game words those completions differently (for example "Delve level: 8+ (16) duration: ..."), which the plugin didn't recognise, so the 8+ count only caught up when you reopened the scoreboard. The scoreboard is also now re-read every few moments while it is open, so reopening it reliably corrects your counts.
 - This changelog, and a one-time chat message after an update.
 
 ## 1.0

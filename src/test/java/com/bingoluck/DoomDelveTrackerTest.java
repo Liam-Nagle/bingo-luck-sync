@@ -40,6 +40,20 @@ public class DoomDelveTrackerTest
 	}
 
 	@Test
+	public void countsDeepDelvesThatShowTheirDepthInBrackets()
+	{
+		tracker.seed(new int[]{10, 9, 8, 7, 6, 5, 4, 3}, 2);
+		tracker.takeDirtySnapshot("Tester");
+		// The game's own wording for a delve past level 8 puts the depth in brackets.
+		assertTrue(tracker.onGameMessage("Delve level: 8+ (16) duration: 1:48.6. Personal best: 0:52.6"));
+		assertTrue(tracker.onGameMessage("Delve level: 8+ (9) duration: 2:40.80 (new personal best)"));
+
+		DoomDelveData data = tracker.takeDirtySnapshot("Tester");
+		assertEquals(4, data.getPast8());
+		assertEquals(3, data.getLevels().get(7).intValue());                     // level 8 itself is untouched
+	}
+
+	@Test
 	public void ignoresUnrelatedMessages()
 	{
 		tracker.seed(new int[]{1, 1, 1, 1, 1, 1, 1, 1}, 0);

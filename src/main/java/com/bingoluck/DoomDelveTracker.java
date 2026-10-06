@@ -27,7 +27,7 @@ class DoomDelveTracker
 {
 	static final int LEVELS = 8;                       // delve levels 1..8 are counted separately
 	private static final String CONFIG_KEY = "doomDelves";
-	private static final Pattern COMPLETION = Pattern.compile("Delve level:\\s*(\\d+)(\\+)?\\s*duration:");
+	private static final Pattern COMPLETION = Pattern.compile("Delve level:\\s*(\\d+)(\\+)?(?:\\s*\\(\\d+\\))?\\s*duration:");
 
 	private final ConfigManager configManager;
 
@@ -91,8 +91,8 @@ class DoomDelveTracker
 		dirty = false;
 	}
 
-	/** The scoreboard is the game's own record, so it replaces whatever has been counted so far. */
-	synchronized void seed(int[] scoreboardLevels, int scoreboardPast8)
+	/** The scoreboard is the game's own record, so it replaces whatever has been counted so far. Returns true if anything changed. */
+	synchronized boolean seed(int[] scoreboardLevels, int scoreboardPast8)
 	{
 		boolean changed = !seeded || past8 != scoreboardPast8;
 		for (int i = 0; i < LEVELS; i++)
@@ -106,6 +106,7 @@ class DoomDelveTracker
 		{
 			dirty = true;
 		}
+		return changed;
 	}
 
 	/** Counts a completion from a game message. Returns true if the message was a delve completion. */
